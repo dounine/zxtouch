@@ -1,7 +1,7 @@
 //! # zx_touch
 //! [![Latest Version](https://img.shields.io/crates/v/zxtouch.svg)](https://crates.io/crates/zxtouch)
 //!
-//! zxtouch ios 自动化
+//! zxtouch ios 自动化、需要越狱并已经安装zxtouch app
 //!
 //! ## 功能
 //!
