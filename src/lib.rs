@@ -1,7 +1,7 @@
 //! # zx_touch
 //! [![Latest Version](https://img.shields.io/crates/v/zxtouch.svg)](https://crates.io/crates/zxtouch)
 //!
-//! zxtouch 控制越狱ios自动化
+//! zxtouch ios 自动化
 //!
 //! ## 功能
 //!

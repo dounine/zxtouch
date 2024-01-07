@@ -3,7 +3,7 @@ name = "zxtouch"
 version = "0.0.1"
 edition = "2021"
 authors = ["lake"]
-description = "zxtouch ios automation"
+description = "zxtouch ios 自动化"
 repository = "https://github.com/dounine/zxtouch"
 license = "MIT"
 
