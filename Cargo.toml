@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["lake"]
 description = "zxtouch ios automation"
 repository = "https://github.com/dounine/zxtouch"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
