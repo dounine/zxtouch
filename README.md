@@ -1,4 +1,4 @@
-# zx_touch
+# zxtouch
 [![Latest Version](https://img.shields.io/crates/v/zxtouch.svg)](https://crates.io/crates/zxtouch)
 
 zxtouch ios 自动化
