@@ -1,6 +1,6 @@
 [package]
 name = "zxtouch"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["lake"]
 description = "zxtouch ios 自动化"
