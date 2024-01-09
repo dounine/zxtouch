@@ -1,6 +1,6 @@
 [package]
 name = "zxtouch"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["lake"]
 description = "zxtouch ios 按键自动化脚本(连点器)"
@@ -8,7 +8,7 @@ repository = "https://github.com/dounine/zxtouch"
 license = "MIT"
 
 # 忽略文件夹
-exclude = ["deb"]
+exclude = ["deb", "image", "target"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
