@@ -1,15 +1,27 @@
 # zxtouch
 [![Latest Version](https://img.shields.io/crates/v/zxtouch.svg)](https://crates.io/crates/zxtouch)
 
-zxtouch ios 自动化、需要越狱并已经安装zxtouch app
+ios 按键自动化(连点器)、需越狱并已经安装 [zxtouch.deb](https://github.com/dounine/zxtouch/raw/main/deb/com.zjx.ioscontrol_0.0.7-10_iphoneos-arm.deb)
 
 ## 功能
 
-1. [控制弹窗](#控制弹窗)
+1. [显示弹窗](#显示弹窗)
+2. [显示toast](#显示toast)
 2. [点击屏幕](#点击屏幕)
+3. [文本输入](#文本输入)
+4. [滑动屏幕](#滑动屏幕)
+5. [打开应用](#打开应用)
+6. [图像匹配](#图像匹配)
+7. [睡眠](#睡眠)
+8. [显示键盘](#显示键盘)
+9. [隐藏键盘](#隐藏键盘)
+10. [设置粘贴板内容](#设置粘贴板内容)
+11. [获取粘贴板内容](#获取粘贴板内容)
+12. [粘贴](#粘贴)
+13. [运行命令](#运行命令)
 
 
-## 控制弹窗
+## 显示弹窗
 
 ```rust
 use zxtouch::zx_touch::{TouchTrait, ZxTouch};
@@ -25,5 +37,14 @@ use zxtouch::zx_touch::ZxTouch;
 let mut touch = ZxTouch::new("192.168.3.113", 6000);
 touch.connect().await.unwrap();
 touch.touch_down(200, 200, TouchFinger::Five).await.unwrap();
+touch.close().await.unwrap();
+```
+## 文本输入
+
+```rust
+use zxtouch::zx_touch::ZxTouch;
+let mut touch = ZxTouch::new("192.168.3.113", 6000);
+touch.connect().await.unwrap();
+touch.text("hello").await.unwrap();
 touch.close().await.unwrap();
 ```

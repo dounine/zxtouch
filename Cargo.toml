@@ -1,9 +1,9 @@
 [package]
 name = "zxtouch"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["lake"]
-description = "zxtouch ios 自动化"
+description = "zxtouch ios 按键自动化脚本(连点器)"
 repository = "https://github.com/dounine/zxtouch"
 license = "MIT"
 
