@@ -1,6 +1,6 @@
 [package]
 name = "zxtouch"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 authors = ["lake"]
 description = "zxtouch ios 按键自动化脚本(连点器)"
