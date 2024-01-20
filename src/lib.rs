@@ -3,6 +3,8 @@
 //!
 //! ios 按键自动化(连点器)、需越狱并已经安装 [zxtouch.deb](https://github.com/dounine/zxtouch/raw/main/deb/com.zjx.ioscontrol_0.0.7-10_iphoneos-arm.deb)
 //!
+//! [![QQ群](https://img.shields.io/badge/QQ%E7%BE%A4-799168925-blue)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=dLoye8pBcO60zGzqLjGO0l-GgMIaf6wQ&authKey=LfxBdZ5A%2F9eWJbKpzTcuWPjmQu5UdIJ3TVTpqRAQYkCID50WLkYoIXcGxGKzupG3&noverify=0&group_code=799168925)
+//!
 //! ## 功能
 //!
 //! 1. [显示弹窗](#显示弹窗)
