@@ -79,6 +79,7 @@ pub(crate) enum TouchType {
 }
 
 unsafe impl Send for TouchType {}
+
 unsafe impl Sync for TouchType {}
 
 unsafe impl Send for TouchFinger {}
@@ -120,25 +121,21 @@ pub trait TouchTrait {
     /// 批量点击
     async fn touch_events(&self, list: Vec<(TouchType, u32, u32, TouchFinger)>) -> Result<(), Error>;
     /// 打开app
-    async fn switch_to_app(&self, bundle_id: &str) -> Result<(), Error>;
+    async fn switch_to_app(&self, bundle_id: &str) -> Result<String, Error>;
     /// root 方式运行命令
     async fn run_shell_command(&self, command: &str) -> Result<(), Error>;
     /// 图像匹配
     async fn image_match(&self, image: &str, acceptable_value: f32, max_try_times: u8, scale_ration: f32) -> Result<(), Error>;
     /// 睡眠
-    async fn sleep(&self, microseconds: u32) -> Result<(), Error>;
+    async fn sleep(&self, microseconds: u32) -> Result<String, Error>;
     /// 显示键盘
-    async fn keyboard_show(&self) -> Result<(), Error>;
+    async fn keyboard_show(&self) -> Result<String, Error>;
     /// 隐藏键盘
-    async fn keyboard_hide(&self) -> Result<(), Error>;
+    async fn keyboard_hide(&self) -> Result<String, Error>;
     /// 输入文本
     async fn text(&self, text: &str) -> Result<String, Error>;
     /// 设置粘贴板内容
-    async fn set_clipboard(&self, text: &str) -> Result<(), Error>;
-    /// 获取粘贴板内容
-    async fn get_clipboard(&self) -> Result<String, Error>;
-    /// 粘贴
-    async fn paste_clipboard(&self) -> Result<(), Error>;
+    async fn move_cursor(&self, offset: u32) -> Result<String, Error>;
 }
 
 
@@ -258,8 +255,32 @@ impl TouchTrait for ZxTouch {
         }
     }
 
-    async fn switch_to_app(&self, bundle_id: &str) -> Result<(), Error> {
-        todo!()
+    async fn switch_to_app(&self, bundle_id: &str) -> Result<String, Error> {
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::ProcessBringForeground.into();
+        let args = format!("{}{}\r\n", message_type, bundle_id);
+        match socket
+            .write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                msg.to_string()
+            })
+            .map(Ok)
+            .map_err(|e| Error::SocketError(e))?
     }
 
     async fn run_shell_command(&self, command: &str) -> Result<(), Error> {
@@ -270,16 +291,88 @@ impl TouchTrait for ZxTouch {
         todo!()
     }
 
-    async fn sleep(&self, microseconds: u32) -> Result<(), Error> {
-        todo!()
+    async fn sleep(&self, millseconds: u32) -> Result<String, Error> {
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::Usleep.into();
+        let args = format!("{}{}\r\n", message_type, millseconds * 1000);
+        match socket
+            .write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                msg.to_string()
+            })
+            .map(Ok)
+            .map_err(|e| Error::SocketError(e))?
     }
 
-    async fn keyboard_show(&self) -> Result<(), Error> {
-        todo!()
+    async fn keyboard_show(&self) -> Result<String, Error> {
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::Keyboardimpl.into();
+        let args = format!("{}{};;{}\r\n", message_type, 2, 2);
+        match socket
+            .write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                msg.to_string()
+            })
+            .map(Ok)
+            .map_err(|e| Error::SocketError(e))?
     }
 
-    async fn keyboard_hide(&self) -> Result<(), Error> {
-        todo!()
+    async fn keyboard_hide(&self) -> Result<String, Error> {
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::Keyboardimpl.into();
+        let args = format!("{}{};;{}\r\n", message_type, 2, 1);
+        match socket
+            .write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                msg.to_string()
+            })
+            .map(Ok)
+            .map_err(|e| Error::SocketError(e))?
     }
 
     async fn text(&self, text: &str) -> Result<String, Error> {
@@ -313,16 +406,32 @@ impl TouchTrait for ZxTouch {
             .map_err(|e| Error::SocketError(e))?
     }
 
-    async fn set_clipboard(&self, text: &str) -> Result<(), Error> {
-        todo!()
-    }
-
-    async fn get_clipboard(&self) -> Result<String, Error> {
-        todo!()
-    }
-
-    async fn paste_clipboard(&self) -> Result<(), Error> {
-        todo!()
+    async fn move_cursor(&self, offset: u32) -> Result<String, Error> {
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::Keyboardimpl.into();
+        let args = format!("{}{};;{}\r\n", message_type, 3, offset);
+        match socket
+            .write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                msg.to_string()
+            })
+            .map(Ok)
+            .map_err(|e| Error::SocketError(e))?
     }
 }
 
@@ -348,7 +457,9 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.show_alert_box("hello", "hi", 3).await.unwrap();
+        touch.show_alert_box("hello", "hi", 1).await.unwrap();
+        touch.sleep(3 * 1000).await.unwrap();
+        touch.show_alert_box("hello", "hello", 1).await.unwrap();
         touch.close().await.unwrap();
     }
 
@@ -367,6 +478,51 @@ mod tests {
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
         touch.touch_events(vec![(TouchType::Down, 300, 400, TouchFinger::Five), (TouchType::Up, 300, 400, TouchFinger::Five)]).await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_switch_to_app() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.switch_to_app("com.netskao.dumpdecrypter").await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_keyboard_show() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.keyboard_show().await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_keyboard_hide() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.keyboard_hide().await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_sleep() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.keyboard_hide().await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_move_cursor() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.move_cursor(3).await.unwrap();
         touch.close().await.unwrap();
     }
 
