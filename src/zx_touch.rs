@@ -127,7 +127,7 @@ enum ParamType {
 }
 
 #[derive(Debug, Clone)]
-enum ScreenOrientation {
+pub enum ScreenOrientation {
     Up = 2,    //倒屏
     Down = 1,  //竖屏
     Left = 3,  //左横屏
@@ -135,13 +135,64 @@ enum ScreenOrientation {
 }
 
 #[derive(Debug, Clone)]
-struct DeviceInfo {
+pub struct DeviceInfo {
     device_name: String,
     system_name: String,
     system_version: String,
     model: String,
     identifier_for_vendor: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct FindBuilder {
+    acceptable: f32,
+    max_try_times: u8,
+    scale_ration: f32,
+}
+
+unsafe impl Send for FindBuilder {}
+unsafe impl Sync for FindBuilder {}
+
+impl FindBuilder {
+    pub fn new() -> Self {
+        Self {
+            acceptable: 0.8,
+            max_try_times: 4,
+            scale_ration: 0.8,
+        }
+    }
+    pub fn acceptable(&mut self, acceptable: f32) -> &mut Self {
+        self.acceptable = acceptable;
+        self
+    }
+    pub fn max_try_times(&mut self, max_try_times: u8) -> &mut Self {
+        self.max_try_times = max_try_times;
+        self
+    }
+    pub fn scale_ration(&mut self, scale_ration: f32) -> &mut Self {
+        self.scale_ration = scale_ration;
+        self
+    }
+
+    pub fn build(&self) -> Self {
+        Self {
+            acceptable: self.acceptable,
+            max_try_times: self.max_try_times,
+            scale_ration: self.scale_ration,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchInfo {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
+unsafe impl Send for MatchInfo {}
+unsafe impl Sync for MatchInfo {}
 
 unsafe impl Send for DeviceInfo {}
 unsafe impl Sync for DeviceInfo {}
@@ -699,11 +750,60 @@ impl ZxTouch {
             .map(Ok)
             .map_err(|e| Error::SocketError(e))?
     }
+    /// 图像查找
+    pub async fn image_find(
+        &self,
+        image_path: &str,
+        find_builder: FindBuilder,
+    ) -> Result<Option<MatchInfo>, Error> {
+        self.connected_required()?;
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::TemplateMatch.into();
+        let args = format!(
+            "{}{};;{};;{};;{}\r\n",
+            message_type,
+            image_path,
+            find_builder.max_try_times,
+            find_builder.acceptable,
+            find_builder.scale_ration
+        );
+        match socket.write_all(args.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", args);
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+            }
+        }
+        let mut buffer = [0u8; 1024];
+        socket
+            .read(&mut buffer)
+            .map_err(|e| Error::SocketError(e))
+            .and_then(|size| {
+                let msg = String::from_utf8_lossy(&buffer[..size]);
+                debug!("Received message: {}", msg);
+                let infos = msg.split(";;").collect::<Vec<&str>>();
+                match infos.as_slice() {
+                    &[_, x, y, w, h, ..] => {
+                        let x = x.split(".").collect::<Vec<_>>()[0].parse().unwrap();
+                        let y = y.split(".").collect::<Vec<_>>()[0].parse().unwrap();
+                        let w = w.split(".").collect::<Vec<_>>()[0].parse().unwrap();
+                        let h = h.split(".").collect::<Vec<_>>()[0].parse().unwrap();
+                        if x == 0 && y == 0 && w == 0 && h == 0 {
+                            return Ok(None);
+                        }
+                        Ok(Some(MatchInfo { x, y, w, h }))
+                    }
+                    _ => Ok(None),
+                }
+            })
+            .map(Ok)?
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::zx_touch::{TouchFinger, TouchType, ZxTouch};
+    use crate::zx_touch::{FindBuilder, TouchFinger, TouchType, ZxTouch};
     use std::thread;
     use tracing::level_filters::LevelFilter;
 
@@ -892,6 +992,24 @@ mod tests {
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
         touch.text("hello").await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_image_find() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        let find_builder = FindBuilder::new()
+            .acceptable(0.8)
+            .max_try_times(4)
+            .scale_ration(0.8)
+            .build();
+        touch.connect().await.unwrap();
+        let result = touch
+            .image_find("/var/root/rust/find.jpg", find_builder)
+            .await
+            .unwrap();
+        println!("result: {:?}", result);
         touch.close().await.unwrap();
     }
 }
