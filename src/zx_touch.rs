@@ -71,11 +71,15 @@ pub enum TouchFinger {
     Five,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum TouchType {
     Down,
     Move,
     Up,
 }
+
+unsafe impl Send for TouchType {}
+unsafe impl Sync for TouchType {}
 
 unsafe impl Send for TouchFinger {}
 
@@ -107,8 +111,6 @@ impl Into<u8> for TouchFinger {
 pub trait TouchTrait {
     /// 弹出提示框
     async fn show_alert_box(&self, title: &str, content: &str, duration: u32) -> Result<String, Error>;
-    /// 显示toast
-    async fn show_toast(&self, content: &str, position: u32, font_size: u32, duration: u32) -> Result<String, Error>;
     /// 点击屏幕坐标
     async fn touch_down(&self, x: u32, y: u32, finger: TouchFinger) -> Result<(), Error>;
     /// 移动屏幕坐标
@@ -216,10 +218,6 @@ impl TouchTrait for ZxTouch {
             .map_err(|e| Error::SocketError(e))?
     }
 
-    async fn show_toast(&self, content: &str, position: u32, font_size: u32, duration: u32) -> Result<String, Error> {
-        todo!()
-    }
-
     async fn touch_down(&self, x: u32, y: u32, finger: TouchFinger) -> Result<(), Error> {
         self.touch(TouchType::Down, x, y, finger).await
     }
@@ -233,7 +231,31 @@ impl TouchTrait for ZxTouch {
     }
 
     async fn touch_events(&self, list: Vec<(TouchType, u32, u32, TouchFinger)>) -> Result<(), Error> {
-        todo!()
+        if self.stream.is_none() {
+            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+        }
+        let mut socket = self.stream.as_ref().unwrap().lock().await;
+        let message_type: u8 = MessageType::PerformTouch.into();
+        let args: Vec<ParamType> = list.into_iter().map(|(touch_type, x, y, finger)| {
+            let touch_type: u8 = touch_type.into();
+            let finger: u8 = finger.into();
+            format!("{}{:02}{:05}{:05}", touch_type, finger, x * 10, y * 10).into()
+        }).collect();
+        let args_len = args.len();
+        let args_str = args.into_iter().map(|x| x.into()).collect::<Vec<String>>().join("");
+        let args_str = format!("{}{}", args_len, args_str);
+        let msg = format!("{}{}\r\n", message_type, args_str);
+        match socket
+            .write_all(msg.as_bytes()) {
+            Ok(_) => {
+                debug!("send message: {}", msg);
+                Ok(())
+            }
+            Err(e) => {
+                error!("write error: {}", e);
+                Err(Error::SocketError(e))
+            }
+        }
     }
 
     async fn switch_to_app(&self, bundle_id: &str) -> Result<(), Error> {
@@ -307,7 +329,7 @@ impl TouchTrait for ZxTouch {
 #[cfg(test)]
 mod tests {
     use tracing::level_filters::LevelFilter;
-    use crate::zx_touch::{TouchFinger, TouchTrait, ZxTouch};
+    use crate::zx_touch::{TouchFinger, TouchTrait, TouchType, ZxTouch};
 
     fn init_log() {
         let format = tracing_subscriber::fmt::format()
@@ -335,7 +357,16 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.touch_down(200, 200, TouchFinger::Five).await.unwrap();
+        touch.touch_down(329, 2144, TouchFinger::Five).await.unwrap();
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_touch_events() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        touch.connect().await.unwrap();
+        touch.touch_events(vec![(TouchType::Down, 300, 400, TouchFinger::Five), (TouchType::Up, 300, 400, TouchFinger::Five)]).await.unwrap();
         touch.close().await.unwrap();
     }
 
