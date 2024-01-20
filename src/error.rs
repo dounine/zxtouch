@@ -4,4 +4,6 @@ use thiserror::Error;
 pub enum Error {
     #[error("socket error: {0}")]
     SocketError(#[from] std::io::Error),
+    #[error("{0}")]
+    Err(String),
 }
