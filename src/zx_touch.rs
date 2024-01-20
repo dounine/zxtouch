@@ -1,12 +1,11 @@
+use crate::error::Error;
+use crate::r#type::MessageType;
+use futures::lock::Mutex;
 use std::fmt::{Debug, Display};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::{Arc};
-use futures::lock::Mutex;
+use std::sync::Arc;
 use tracing::{debug, error};
-use crate::error::Error;
-use crate::r#type::MessageType;
-
 
 pub struct ZxTouch {
     host: String,
@@ -39,17 +38,32 @@ impl ZxTouch {
         self.stream = Some(Arc::new(Mutex::new(stream)));
         Ok(())
     }
-    pub(crate) async fn touch(&self, touch_type: TouchType, x: u32, y: u32, finger: TouchFinger) -> Result<(), Error> {
+    pub(crate) async fn touch(
+        &self,
+        touch_type: TouchType,
+        x: u32,
+        y: u32,
+        finger: TouchFinger,
+    ) -> Result<(), Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::PerformTouch.into();
         let touch_type: u8 = touch_type.into();
         let finger: u8 = finger.into();
-        let msg = format!("{};;1{}{}{:05}{:05}\r\n", message_type, touch_type, finger, x * 10, y * 10);
-        match socket
-            .write_all(msg.as_bytes()) {
+        let msg = format!(
+            "{};;1{}{}{:05}{:05}\r\n",
+            message_type,
+            touch_type,
+            finger,
+            x * 10,
+            y * 10
+        );
+        match socket.write_all(msg.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", msg);
                 Ok(())
@@ -111,7 +125,12 @@ impl Into<u8> for TouchFinger {
 #[async_trait::async_trait]
 pub trait TouchTrait {
     /// 弹出提示框
-    async fn show_alert_box(&self, title: &str, content: &str, duration: u32) -> Result<String, Error>;
+    async fn show_alert_box(
+        &self,
+        title: &str,
+        content: &str,
+        duration: u32,
+    ) -> Result<String, Error>;
     /// 点击屏幕坐标
     async fn touch_down(&self, x: u32, y: u32, finger: TouchFinger) -> Result<(), Error>;
     /// 移动屏幕坐标
@@ -119,13 +138,22 @@ pub trait TouchTrait {
     /// 抬起屏幕坐标
     async fn touch_up(&self, x: u32, y: u32, finger: TouchFinger) -> Result<(), Error>;
     /// 批量点击
-    async fn touch_events(&self, list: Vec<(TouchType, u32, u32, TouchFinger)>) -> Result<(), Error>;
+    async fn touch_events(
+        &self,
+        list: Vec<(TouchType, u32, u32, TouchFinger)>,
+    ) -> Result<(), Error>;
     /// 打开app
     async fn switch_to_app(&self, bundle_id: &str) -> Result<String, Error>;
     /// root 方式运行命令
     async fn run_shell_command(&self, command: &str) -> Result<(), Error>;
     /// 图像匹配
-    async fn image_match(&self, image: &str, acceptable_value: f32, max_try_times: u8, scale_ration: f32) -> Result<(), Error>;
+    async fn image_match(
+        &self,
+        image: &str,
+        acceptable_value: f32,
+        max_try_times: u8,
+        scale_ration: f32,
+    ) -> Result<(), Error>;
     /// 睡眠
     async fn sleep(&self, microseconds: u32) -> Result<String, Error>;
     /// 显示键盘
@@ -137,7 +165,6 @@ pub trait TouchTrait {
     /// 设置粘贴板内容
     async fn move_cursor(&self, offset: u32) -> Result<String, Error>;
 }
-
 
 #[derive(Debug, Clone)]
 enum ParamType {
@@ -184,17 +211,32 @@ impl From<u8> for ParamType {
 
 #[async_trait::async_trait]
 impl TouchTrait for ZxTouch {
-    async fn show_alert_box(&self, title: &str, content: &str, duration: u32) -> Result<String, Error> {
+    async fn show_alert_box(
+        &self,
+        title: &str,
+        content: &str,
+        duration: u32,
+    ) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::ShowAlertBox.into();
-        let args: Vec<ParamType> = vec![title.to_string().into(), content.to_string().into(), duration.into()];
-        let args_str = args.into_iter().map(|x| x.into()).collect::<Vec<String>>().join(";;");
+        let args: Vec<ParamType> = vec![
+            title.to_string().into(),
+            content.to_string().into(),
+            duration.into(),
+        ];
+        let args_str = args
+            .into_iter()
+            .map(|x| x.into())
+            .collect::<Vec<String>>()
+            .join(";;");
         let msg = format!("{}{}\r\n", message_type, args_str);
-        match socket
-            .write_all(msg.as_bytes()) {
+        match socket.write_all(msg.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", msg);
             }
@@ -227,23 +269,35 @@ impl TouchTrait for ZxTouch {
         self.touch(TouchType::Up, x, y, finger).await
     }
 
-    async fn touch_events(&self, list: Vec<(TouchType, u32, u32, TouchFinger)>) -> Result<(), Error> {
+    async fn touch_events(
+        &self,
+        list: Vec<(TouchType, u32, u32, TouchFinger)>,
+    ) -> Result<(), Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::PerformTouch.into();
-        let args: Vec<ParamType> = list.into_iter().map(|(touch_type, x, y, finger)| {
-            let touch_type: u8 = touch_type.into();
-            let finger: u8 = finger.into();
-            format!("{}{:02}{:05}{:05}", touch_type, finger, x * 10, y * 10).into()
-        }).collect();
+        let args: Vec<ParamType> = list
+            .into_iter()
+            .map(|(touch_type, x, y, finger)| {
+                let touch_type: u8 = touch_type.into();
+                let finger: u8 = finger.into();
+                format!("{}{:02}{:05}{:05}", touch_type, finger, x * 10, y * 10).into()
+            })
+            .collect();
         let args_len = args.len();
-        let args_str = args.into_iter().map(|x| x.into()).collect::<Vec<String>>().join("");
+        let args_str = args
+            .into_iter()
+            .map(|x| x.into())
+            .collect::<Vec<String>>()
+            .join("");
         let args_str = format!("{}{}", args_len, args_str);
         let msg = format!("{}{}\r\n", message_type, args_str);
-        match socket
-            .write_all(msg.as_bytes()) {
+        match socket.write_all(msg.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", msg);
                 Ok(())
@@ -257,13 +311,15 @@ impl TouchTrait for ZxTouch {
 
     async fn switch_to_app(&self, bundle_id: &str) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::ProcessBringForeground.into();
         let args = format!("{}{}\r\n", message_type, bundle_id);
-        match socket
-            .write_all(args.as_bytes()) {
+        match socket.write_all(args.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", args);
             }
@@ -287,19 +343,27 @@ impl TouchTrait for ZxTouch {
         todo!()
     }
 
-    async fn image_match(&self, image: &str, acceptable_value: f32, max_try_times: u8, scale_ration: f32) -> Result<(), Error> {
+    async fn image_match(
+        &self,
+        image: &str,
+        acceptable_value: f32,
+        max_try_times: u8,
+        scale_ration: f32,
+    ) -> Result<(), Error> {
         todo!()
     }
 
     async fn sleep(&self, millseconds: u32) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::Usleep.into();
         let args = format!("{}{}\r\n", message_type, millseconds * 1000);
-        match socket
-            .write_all(args.as_bytes()) {
+        match socket.write_all(args.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", args);
             }
@@ -321,13 +385,15 @@ impl TouchTrait for ZxTouch {
 
     async fn keyboard_show(&self) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::Keyboardimpl.into();
         let args = format!("{}{};;{}\r\n", message_type, 2, 2);
-        match socket
-            .write_all(args.as_bytes()) {
+        match socket.write_all(args.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", args);
             }
@@ -349,13 +415,15 @@ impl TouchTrait for ZxTouch {
 
     async fn keyboard_hide(&self) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::Keyboardimpl.into();
         let args = format!("{}{};;{}\r\n", message_type, 2, 1);
-        match socket
-            .write_all(args.as_bytes()) {
+        match socket.write_all(args.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", args);
             }
@@ -377,15 +445,21 @@ impl TouchTrait for ZxTouch {
 
     async fn text(&self, text: &str) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::Keyboardimpl.into();
         let args: Vec<ParamType> = vec![1.into(), text.to_string().into()];
-        let args_str = args.into_iter().map(|x| x.into()).collect::<Vec<String>>().join(";;");
+        let args_str = args
+            .into_iter()
+            .map(|x| x.into())
+            .collect::<Vec<String>>()
+            .join(";;");
         let msg = format!("{}{}\r\n", message_type, args_str);
-        match socket
-            .write_all(msg.as_bytes()) {
+        match socket.write_all(msg.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", msg);
             }
@@ -408,13 +482,15 @@ impl TouchTrait for ZxTouch {
 
     async fn move_cursor(&self, offset: u32) -> Result<String, Error> {
         if self.stream.is_none() {
-            return Err(Error::SocketError(std::io::Error::new(std::io::ErrorKind::NotConnected, "not connected")));
+            return Err(Error::SocketError(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "not connected",
+            )));
         }
         let mut socket = self.stream.as_ref().unwrap().lock().await;
         let message_type: u8 = MessageType::Keyboardimpl.into();
         let args = format!("{}{};;{}\r\n", message_type, 3, offset);
-        match socket
-            .write_all(args.as_bytes()) {
+        match socket.write_all(args.as_bytes()) {
             Ok(_) => {
                 debug!("send message: {}", args);
             }
@@ -437,8 +513,8 @@ impl TouchTrait for ZxTouch {
 
 #[cfg(test)]
 mod tests {
-    use tracing::level_filters::LevelFilter;
     use crate::zx_touch::{TouchFinger, TouchTrait, TouchType, ZxTouch};
+    use tracing::level_filters::LevelFilter;
 
     fn init_log() {
         let format = tracing_subscriber::fmt::format()
@@ -468,7 +544,10 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.touch_down(329, 2144, TouchFinger::Five).await.unwrap();
+        touch
+            .touch_down(329, 2144, TouchFinger::Five)
+            .await
+            .unwrap();
         touch.close().await.unwrap();
     }
 
@@ -477,7 +556,13 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.touch_events(vec![(TouchType::Down, 300, 400, TouchFinger::Five), (TouchType::Up, 300, 400, TouchFinger::Five)]).await.unwrap();
+        touch
+            .touch_events(vec![
+                (TouchType::Down, 300, 400, TouchFinger::Five),
+                (TouchType::Up, 300, 400, TouchFinger::Five),
+            ])
+            .await
+            .unwrap();
         touch.close().await.unwrap();
     }
 
@@ -486,7 +571,10 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.switch_to_app("com.netskao.dumpdecrypter").await.unwrap();
+        touch
+            .switch_to_app("com.netskao.dumpdecrypter")
+            .await
+            .unwrap();
         touch.close().await.unwrap();
     }
 
