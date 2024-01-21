@@ -1,13 +1,14 @@
+use crate::entity::{
+    DeviceInfo, FindBuilder, MatchInfo, ParamType, ScreenOrientation, TouchBuilder, TouchFinger,
+    TouchType,
+};
 use crate::error::Error;
 use crate::r#type::MessageType;
+use crate::{debug, error};
 use futures::lock::Mutex;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use crate::entity::{
-    DeviceInfo, FindBuilder, MatchInfo, ParamType, ScreenOrientation, TouchFinger, TouchType,
-};
-use crate::{debug, error};
 
 pub struct ZxTouch {
     host: String,
@@ -131,11 +132,8 @@ impl ZxTouch {
     }
     /// 点击屏幕坐标
     pub async fn touch(&self, x: u32, y: u32) -> Result<(), Error> {
-        self.touch_events(vec![
-            (TouchType::Down, x, y, TouchFinger::Five),
-            (TouchType::Up, x, y, TouchFinger::Five),
-        ])
-        .await
+        self.touch_down(x, y, TouchFinger::Five).await?;
+        self.touch_up(x, y, TouchFinger::Five).await
     }
     /// 长按屏幕坐标
     pub async fn touch_long(&self, x: u32, y: u32, duration: u32) -> Result<(), Error> {
@@ -573,6 +571,30 @@ impl ZxTouch {
             .map(Ok)
             .map_err(|e| Error::SocketError(e))?
     }
+    pub async fn touch_image(
+        &self,
+        image_path: &str,
+        touch_builder: TouchBuilder,
+    ) -> Result<bool, Error> {
+        self.connected_required()?;
+        let expire_time = std::time::SystemTime::now()
+            + std::time::Duration::from_secs(touch_builder.timeout_seconds as u64);
+        loop {
+            if std::time::SystemTime::now() > expire_time {
+                break;
+            }
+            let find_info = self
+                .image_find(image_path, touch_builder.find_builder.clone())
+                .await?;
+            if let Some(find_info) = find_info {
+                let x = find_info.x + find_info.w / 2;
+                let y = find_info.y + find_info.h / 2;
+                self.touch(x, y).await?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
     /// 图像查找
     pub async fn image_find(
         &self,
@@ -627,7 +649,7 @@ impl ZxTouch {
 
 #[cfg(test)]
 mod tests {
-    use crate::entity::FindBuilder;
+    use crate::entity::{FindBuilder, TouchBuilder};
     use crate::zx_touch::{TouchFinger, TouchType, ZxTouch};
     use tracing::level_filters::LevelFilter;
 
@@ -791,7 +813,7 @@ mod tests {
         init_log();
         let mut touch = ZxTouch::new("192.168.3.113", 6000);
         touch.connect().await.unwrap();
-        touch.touch(300, 400).await.unwrap();
+        touch.touch(400, 2250).await.unwrap();
         touch.close().await.unwrap();
     }
     #[tokio::test]
@@ -831,6 +853,20 @@ mod tests {
         touch.connect().await.unwrap();
         let result = touch
             .image_find("/var/root/rust/find.jpg", find_builder)
+            .await
+            .unwrap();
+        println!("result: {:?}", result);
+        touch.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_touch_image() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        let touch_builder = TouchBuilder::new();
+        touch.connect().await.unwrap();
+        let result = touch
+            .touch_image("/var/root/rust/find.jpg", touch_builder)
             .await
             .unwrap();
         println!("result: {:?}", result);

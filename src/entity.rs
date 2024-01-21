@@ -79,6 +79,21 @@ pub struct FindBuilder {
 unsafe impl Send for FindBuilder {}
 unsafe impl Sync for FindBuilder {}
 
+#[derive(Debug, Clone)]
+pub struct TouchBuilder {
+    pub find_builder: FindBuilder,
+    pub timeout_seconds: u32,
+}
+impl TouchBuilder {
+    pub fn new() -> Self {
+        Self {
+            find_builder: FindBuilder::new(),
+            timeout_seconds: 3,
+        }
+    }
+}
+unsafe impl Send for TouchBuilder {}
+unsafe impl Sync for TouchBuilder {}
 impl FindBuilder {
     pub fn new() -> Self {
         Self {
