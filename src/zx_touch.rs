@@ -872,4 +872,15 @@ mod tests {
         println!("result: {:?}", result);
         touch.close().await.unwrap();
     }
+
+    #[tokio::test]
+    async fn test_back_home() {
+        init_log();
+        let mut touch = ZxTouch::new("192.168.3.113", 6000);
+        let touch_builder = TouchBuilder::new();
+        touch.connect().await.unwrap();
+        // touch.open_app("com.apple.springboard").await.unwrap();
+        touch.touch(400, 2000).await.unwrap();
+        touch.close().await.unwrap();
+    }
 }
