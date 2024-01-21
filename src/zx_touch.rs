@@ -1,12 +1,11 @@
 use crate::error::Error;
 use crate::r#type::MessageType;
 use futures::lock::Mutex;
-use std::fmt::{Debug, Display};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use std::thread;
 use tracing::{debug, error};
+use crate::entity::{DeviceInfo, FindBuilder, MatchInfo, ParamType, ScreenOrientation, TouchFinger, TouchType};
 
 pub struct ZxTouch {
     host: String,
@@ -25,8 +24,8 @@ impl ZxTouch {
     pub async fn close(&mut self) -> Result<(), Error> {
         match self.stream.take() {
             None => Ok(()),
-            Some(mut socket) => {
-                let mut socket = socket.lock().await;
+            Some(socket) => {
+                let socket = socket.lock().await;
                 socket
                     .shutdown(std::net::Shutdown::Both)
                     .map_err(|e| Error::SocketError(e))
@@ -70,184 +69,6 @@ impl ZxTouch {
             }
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TouchFinger {
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum TouchType {
-    Down,
-    Move,
-    Up,
-}
-
-unsafe impl Send for TouchType {}
-
-unsafe impl Sync for TouchType {}
-
-unsafe impl Send for TouchFinger {}
-
-unsafe impl Sync for TouchFinger {}
-
-impl Into<u8> for TouchType {
-    fn into(self) -> u8 {
-        match self {
-            TouchType::Down => 1,
-            TouchType::Move => 2,
-            TouchType::Up => 0,
-        }
-    }
-}
-
-impl Into<u8> for TouchFinger {
-    fn into(self) -> u8 {
-        match self {
-            TouchFinger::One => 1,
-            TouchFinger::Two => 2,
-            TouchFinger::Three => 3,
-            TouchFinger::Four => 4,
-            TouchFinger::Five => 5,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-enum ParamType {
-    String(String),
-    I32(i32),
-    U32(u32),
-    U8(u8),
-}
-
-#[derive(Debug, Clone)]
-pub enum ScreenOrientation {
-    Up = 2,    //倒屏
-    Down = 1,  //竖屏
-    Left = 3,  //左横屏
-    Right = 4, //右横屏
-}
-
-#[derive(Debug, Clone)]
-pub struct DeviceInfo {
-    device_name: String,
-    system_name: String,
-    system_version: String,
-    model: String,
-    identifier_for_vendor: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct FindBuilder {
-    acceptable: f32,
-    max_try_times: u8,
-    scale_ration: f32,
-}
-
-unsafe impl Send for FindBuilder {}
-unsafe impl Sync for FindBuilder {}
-
-impl FindBuilder {
-    pub fn new() -> Self {
-        Self {
-            acceptable: 0.8,
-            max_try_times: 4,
-            scale_ration: 0.8,
-        }
-    }
-    pub fn acceptable(&mut self, acceptable: f32) -> &mut Self {
-        self.acceptable = acceptable;
-        self
-    }
-    pub fn max_try_times(&mut self, max_try_times: u8) -> &mut Self {
-        self.max_try_times = max_try_times;
-        self
-    }
-    pub fn scale_ration(&mut self, scale_ration: f32) -> &mut Self {
-        self.scale_ration = scale_ration;
-        self
-    }
-
-    pub fn build(&self) -> Self {
-        Self {
-            acceptable: self.acceptable,
-            max_try_times: self.max_try_times,
-            scale_ration: self.scale_ration,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MatchInfo {
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
-}
-
-unsafe impl Send for MatchInfo {}
-unsafe impl Sync for MatchInfo {}
-
-unsafe impl Send for DeviceInfo {}
-unsafe impl Sync for DeviceInfo {}
-
-impl From<i32> for ScreenOrientation {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => ScreenOrientation::Up,
-            1 => ScreenOrientation::Down,
-            2 => ScreenOrientation::Left,
-            3 => ScreenOrientation::Right,
-            _ => ScreenOrientation::Down,
-        }
-    }
-}
-
-unsafe impl Send for ScreenOrientation {}
-unsafe impl Sync for ScreenOrientation {}
-
-impl Into<String> for ParamType {
-    fn into(self) -> String {
-        match self {
-            ParamType::String(value) => value,
-            ParamType::I32(value) => value.to_string(),
-            ParamType::U32(value) => value.to_string(),
-            ParamType::U8(value) => value.to_string(),
-        }
-    }
-}
-
-impl From<String> for ParamType {
-    fn from(value: String) -> Self {
-        ParamType::String(value)
-    }
-}
-
-impl From<i32> for ParamType {
-    fn from(value: i32) -> Self {
-        ParamType::I32(value)
-    }
-}
-
-impl From<u32> for ParamType {
-    fn from(value: u32) -> Self {
-        ParamType::U32(value)
-    }
-}
-
-impl From<u8> for ParamType {
-    fn from(value: u8) -> Self {
-        ParamType::U8(value)
-    }
-}
-
-impl ZxTouch {
     fn connected_required(&self) -> Result<(), Error> {
         if self.stream.is_none() {
             return Err(Error::SocketError(std::io::Error::new(
@@ -332,8 +153,8 @@ impl ZxTouch {
         if (to_x - x > 50) || (to_y - y > 50) {
             self.sleep(duration / 2).await?;
             self.touch_move(
-                (x + (to_x - x) / 2),
-                (y + (to_y - y) / 2),
+                x + (to_x - x) / 2,
+                y + (to_y - y) / 2,
                 TouchFinger::Five,
             )
             .await?; //过渡
@@ -438,16 +259,6 @@ impl ZxTouch {
             })
             .map(Ok)
             .map_err(|e| Error::SocketError(e))?
-    }
-    /// 图像匹配
-    pub async fn image_match(
-        &self,
-        image: &str,
-        acceptable_value: f32,
-        max_try_times: u8,
-        scale_ration: f32,
-    ) -> Result<(), Error> {
-        todo!()
     }
 
     /// 睡眠
@@ -640,9 +451,9 @@ impl ZxTouch {
                 let msg = String::from_utf8_lossy(&buffer[..size]);
                 debug!("Received message: {}", msg);
                 msg.split(";;")
-                    .map(|x| x.trim())
                     .collect::<Vec<_>>()
                     .get(1)
+                    .map(|x| x.trim())
                     .unwrap()
                     .parse::<i32>()
                     .unwrap()
@@ -672,9 +483,9 @@ impl ZxTouch {
                 let msg = String::from_utf8_lossy(&buffer[..size]);
                 debug!("Received message: {}", msg);
                 msg.split(";;")
-                    .map(|x| x.trim())
                     .collect::<Vec<_>>()
                     .get(1)
+                    .map(|x| x.trim())
                     .map(|x| x.split(".").collect::<Vec<_>>()[0])
                     .unwrap()
                     .parse::<i32>()
@@ -803,9 +614,9 @@ impl ZxTouch {
 
 #[cfg(test)]
 mod tests {
-    use crate::zx_touch::{FindBuilder, TouchFinger, TouchType, ZxTouch};
-    use std::thread;
+    use crate::zx_touch::{TouchFinger, TouchType, ZxTouch};
     use tracing::level_filters::LevelFilter;
+    use crate::entity::FindBuilder;
 
     fn init_log() {
         let format = tracing_subscriber::fmt::format()

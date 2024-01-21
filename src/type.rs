@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 pub enum MessageType {
     PerformTouch = 10,
     ProcessBringForeground = 11,
