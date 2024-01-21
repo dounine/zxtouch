@@ -104,4 +104,4 @@ pub mod entity;
 pub mod error;
 pub(crate) mod macros;
 pub mod r#type;
-mod zx_touch;
+pub mod zx_touch;
