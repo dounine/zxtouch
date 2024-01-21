@@ -100,7 +100,8 @@ touch.close().await.unwrap();
 
 */
 
-pub mod error;
-pub mod r#type;
-pub mod zx_touch;
 pub mod entity;
+pub mod error;
+pub(crate) mod macros;
+pub mod r#type;
+mod zx_touch;

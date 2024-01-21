@@ -10,13 +10,26 @@ license = "MIT"
 # 忽略文件夹
 exclude = ["deb", "image", "target"]
 
+[workspace]
+members = [".", "example"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+cfg-if = "1.0.0"
+tracing = { version = "0.1.40", optional = true }
+tracing-subscriber = { version = "0.3.18", optional = true }
 thiserror = "1.0.56"
 async-trait = "0.1.77"
 futures = "0.3.30"
+log = "0.4.20"
+
 [dev-dependencies]
 tokio = { version = "1.12.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+
+[features]
+default = []
+debug-print = ["tracing", "tracing-subscriber"]
+

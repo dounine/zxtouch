@@ -4,8 +4,10 @@ use futures::lock::Mutex;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use tracing::{debug, error};
-use crate::entity::{DeviceInfo, FindBuilder, MatchInfo, ParamType, ScreenOrientation, TouchFinger, TouchType};
+use crate::entity::{
+    DeviceInfo, FindBuilder, MatchInfo, ParamType, ScreenOrientation, TouchFinger, TouchType,
+};
+use crate::{debug, error};
 
 pub struct ZxTouch {
     host: String,
@@ -71,6 +73,7 @@ impl ZxTouch {
     }
     fn connected_required(&self) -> Result<(), Error> {
         if self.stream.is_none() {
+            error!("not connected");
             return Err(Error::SocketError(std::io::Error::new(
                 std::io::ErrorKind::NotConnected,
                 "not connected",
@@ -106,6 +109,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -152,12 +156,8 @@ impl ZxTouch {
         self.touch_down(x, y, TouchFinger::Five).await?;
         if (to_x - x > 50) || (to_y - y > 50) {
             self.sleep(duration / 2).await?;
-            self.touch_move(
-                x + (to_x - x) / 2,
-                y + (to_y - y) / 2,
-                TouchFinger::Five,
-            )
-            .await?; //过渡
+            self.touch_move(x + (to_x - x) / 2, y + (to_y - y) / 2, TouchFinger::Five)
+                .await?; //过渡
             self.sleep(duration / 2).await?;
         } else {
             self.sleep(duration).await?;
@@ -222,6 +222,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -247,6 +248,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -274,6 +276,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -300,6 +303,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -326,6 +330,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -358,6 +363,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -385,6 +391,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -411,6 +418,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -442,6 +450,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -474,6 +483,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -508,6 +518,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -516,7 +527,7 @@ impl ZxTouch {
             .map_err(|e| Error::SocketError(e))
             .and_then(|size| {
                 let msg = String::from_utf8_lossy(&buffer[..size]);
-                debug!("Received message: {}", msg);
+                        debug!("Received message: {}", msg);
                 let infos = msg.split(";;").collect::<Vec<&str>>();
                 match infos.as_slice() {
                     &[_,device_name, system_name, system_version, model, identifier_for_vendor,..] => {
@@ -548,6 +559,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -584,6 +596,7 @@ impl ZxTouch {
             }
             Err(e) => {
                 error!("write error: {}", e);
+                return Err(Error::SocketError(e));
             }
         }
         let mut buffer = [0u8; 1024];
@@ -614,9 +627,9 @@ impl ZxTouch {
 
 #[cfg(test)]
 mod tests {
+    use crate::entity::FindBuilder;
     use crate::zx_touch::{TouchFinger, TouchType, ZxTouch};
     use tracing::level_filters::LevelFilter;
-    use crate::entity::FindBuilder;
 
     fn init_log() {
         let format = tracing_subscriber::fmt::format()
